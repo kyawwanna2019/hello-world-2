@@ -1,0 +1,70 @@
+version: '2.4'
+services:
+  jenkins:
+    container_name: jenkins 
+    build:
+      context: .
+      dockerfile: ./Jenkins/Dockerfile
+    restart: always
+    networks:
+      - kwnnetwork
+    ports:
+      - "8080:8080"
+    environment:
+      - DOCKER_HOST=tcp://socat:2375
+    depends_on:
+      - socat
+  # jira:
+  #   container_name: jira
+  #   image: atlassian/jira-software
+  #   #image: dchevell/jira-software:latest
+  #   networks:
+  #     - kwnnetwork
+  #   ports:
+  #     - 8888:8080      
+  socat:
+    container_name: socat
+    image: alpine/socat:latest
+   #image: alpine/socat:latest
+    networks:
+      - kwnnetwork
+    command: tcp-listen:2375,fork,reuseaddr unix-connect:/var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    expose:
+      - "2375"
+
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    #image: postgres:9.6
+    networks:
+      - kwnnetwork
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonarpasswd
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 32000
+        hard: 40000
+  sonarqube:
+    container_name: sonarqube
+    image: sonarqube:latest
+    #image: sonarqube:7.1
+    ports:
+      - "9000:9000"
+      - "9092:9092"
+    networks:
+      - kwnnetwork
+    environment:
+      SONARQUBE_JDBC_USERNAME: sonar
+      SONARQUBE_JDBC_PASSWORD: sonarpasswd
+      SONARQUBE_JDBC_URL: "jdbc:postgresql://postgres:5432/sonar"
+    depends_on:
+      - postgres
+
+
+networks:
+  kwnnetwork:
+    name: kwnnetwork
